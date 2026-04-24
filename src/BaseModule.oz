@@ -9,7 +9,7 @@ define
     %% PUT ANY AUXILIARY/HELPER FUNCTIONS THAT YOU NEED
 
     % Returns transition Hash
-    fun {TransitionHash Nonce Sender Receiver Value}
+    fun {TransactionHash Nonce Sender Receiver Value}
          (Nonce + Sender + Receiver + Value) mod 1000000
     end
 
@@ -49,16 +49,41 @@ define
 
 
     fun{IsTransactionValid Transaction State}
-    
+        Sender = {GetUSer State Transaction.sender}
+    in
+        if Transaction.nonce \= Sender.nonce +1 then false
+        elseif Transaction.hash \= {TransactionHash Transaction.nonce Transaction.sender Transaction.receiver Transaction.value} then false
+        elseif Sender.balance < Transaction.value then false
+        elseif Transaction.value <0 then false
+        elseif Transaction.max_effort =< 0 then false 
+        elseif Transaction.max_effort < {ComputeEffort Transaction.value} then false 
+        else true
+        end
     end
 
     
+    fun{MakeTransaction Transaction State}  
+        Sender = {GetUser State Transaction.sender}
+        Receiver = {GetUser State Transaction.receiver}
+        NewSender    = user(balance:Sender.balance-Transaction.value  nonce:Sender.nonce + 1)
+        NewReceiver  = user(balance:Receiver.balance + Transaction.value  nonce:Receiver.nonce)
+
+        StateSender= {Adjoin State {List.toRecord state [Transaction.sender#NewSender]}}
+        StateReceiver = {Adjoin StateSender {List.toRecord state [Transaction.receiver#NewReceiver]}}
+    end
+
+    fun{GetUser State User}
+        if {HasFeature State User} then State.User
+        else user(balance:0 nonce:0)
+        end
+    end
+
 
     fun {ProcessTransactions Transactions State}
         case Transactions of nil then 
             State
         [] H|T then 
-            if {IsTransactionValid Transaction State} then
+            if {IsTransactionValid H State} then
                 NewState = {MakeTransaction H State}
             in 
                 {ProcessTransactions T NewState}
