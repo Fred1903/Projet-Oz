@@ -36,6 +36,7 @@ define
             end
         end
     in 
+        if Value == 0 then 1 % 0 has 1 digit so effort = 2^0 = 1
         {Loop Value 0}
     end
 
@@ -144,15 +145,21 @@ define
                 FilterResult = {FilterBlockTransactions BlockTransactions State 0}
                 ValidTransactions = FilterResult.transactions
                 NewState = FilterResult.state
-                
-                NewBlock = block(
-                    number:BlockNumber
-                    previousHash:PreviousHash
-                    transactions:ValidTransactions
-                    hash:{BlockHash BlockNumber PreviousHash ValidTransactions}
-                )
             in
-                {AppendToBlockchain RestTransactions NewState NewBlock.hash {AppendBlock Blockchain NewBlock}}
+                if ValidTransactions == nil then
+                    {AppendToBlockchain RestTransactions NewState PreviousHash Blockchain}
+                else
+                    local 
+                        NewBlock = block(
+                            number:BlockNumber
+                            previousHash:PreviousHash
+                            transactions:ValidTransactions
+                            hash:{BlockHash BlockNumber PreviousHash ValidTransactions}
+                        )
+                    in
+                        {AppendToBlockchain RestTransactions NewState NewBlock.hash {AppendBlock Blockchain NewBlock}}
+                    end
+                end
             end
         end
     end
