@@ -2,7 +2,7 @@ OZ=ozc # OZ Compiler
 OZE=ozengine # OZ Emulator
 
 NOMA1=68362500
-NOMA2=00002400
+NOMA2=99942500
 ZIP_NAME=$(NOMA1)_$(NOMA2).zip
 
 # Fichiers sources
