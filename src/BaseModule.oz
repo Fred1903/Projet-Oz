@@ -53,21 +53,18 @@ define
     end
 
     
-    fun{MakeTransaction Transaction State}  
-    
-    end
-
 
     fun {ProcessTransactions Transactions State}
-    case Transactions of nil then 
-        State
-    [] H|T then 
-        if {IsTransactionValid Transaction State} then
-            NewState = {MakeTransaction Transaction State}
-        in 
-            {ProcessTransactions T NewState}
-        else 
-            {ProcessTransactions T State}
+        case Transactions of nil then 
+            State
+        [] H|T then 
+            if {IsTransactionValid Transaction State} then
+                NewState = {MakeTransaction H State}
+            in 
+                {ProcessTransactions T NewState}
+            else 
+                {ProcessTransactions T State}
+            end
         end
     end
 
