@@ -47,7 +47,7 @@ define
         {Record.map Genesis fun {$ Balance} user(balance: Balance nonce:0)end}
     end
 
-
+    % Check if a transaction is valid
     fun{IsTransactionValid Transaction State}
         Sender = {GetUSer State Transaction.sender}
     in
@@ -61,7 +61,7 @@ define
         end
     end
 
-    
+    % Makes a transaction and updates the state
     fun{MakeTransaction Transaction State}  
         Sender = {GetUser State Transaction.sender}
         Receiver = {GetUser State Transaction.receiver}
@@ -72,26 +72,92 @@ define
         StateReceiver = {Adjoin StateSender {List.toRecord state [Transaction.receiver#NewReceiver]}}
     end
 
+    % Returns an user if he exists, else creates him then returns him
     fun{GetUser State User}
         if {HasFeature State User} then State.User
         else user(balance:0 nonce:0)
         end
     end
 
-
-    fun {ProcessTransactions Transactions State}
+    % Filter transactions of a block, updates state after each valid transaction
+    fun {FilterBlockTransactions Transactions State TotalEffort}
         case Transactions of nil then 
-            State
+            result(transactions:nil state:State)
         [] H|T then 
-            if {IsTransactionValid H State} then
-                NewState = {MakeTransaction H State}
-            in 
-                {ProcessTransactions T NewState}
-            else 
-                {ProcessTransactions T State}
+            local 
+                Effort = {ComputeEffort H.value}
+            in
+                if TotalEffort + Effort > 300 then
+                    {FilterBlockTransactions T State TotalEffort}
+                elseif {IsTransactionValid H State} then
+                    local 
+                        NewState = {MakeTransaction H State}
+                        Rest = {FilterBlockTransactions T NewState TotalEffort + Effort}
+                    in 
+                        result(transactions:H|Rest.transactions state:Rest.state)
+                    end
+                else 
+                    {FilterBlockTransactions T State TotalEffort}
+                end
             end
         end
     end
+
+    % Gets all transactions with the same block number
+    fun {GetBlockTransactions Transactions BlockNumber}
+        case Transactions of nil then nil
+        [] H|T then
+            if H.block_number == BlockNumber then H|{GetBlockTransactions T BlockNumber}
+            else nil
+            end
+        end
+    end
+
+    % Skips all transactions with the same block number and returns the rest for next block
+    fun {SkipBlockTransactions Transactions BlockNumber}
+        case Transactions of nil then nil
+        [] H|T then
+            if H.block_number == BlockNumber then {SkipBlockTransactions T BlockNumber}
+            else Transactions
+            end
+        end
+    end
+
+    % Append block to blockchain
+    fun {AppendBlock Blockchain NewBlock}
+        case Blockchain of nil then [NewBlock]
+        [] H|T then H|{AppendBlock T NewBlock}
+        end
+    end
+
+    % Takes all transactions, groups them by block (creating the blocks) and append to blockchain
+    fun {AppendToBlockchain Transactions State PreviousHash Blockchain}
+        case Transactions of nil then
+            result(blockchain:Blockchain state:State)
+        [] H|_ then
+            local
+                BlockNumberber = H.block_number
+                BlockTransactions = {GetBlockTransactions Transactions BlockNumberber}
+                RestTransactions = {SkipBlockTransactions Transactions BlockNumberber}
+                FilterResult = {FilterBlockTransactions BlockTransactions State 0}
+                ValidTransactions = FilterResult.transactions
+                NewState = FilterResult.state
+                
+                NewBlock = block(
+                    number:BlockNumberber
+                    previousHash:PreviousHash
+                    transactions:ValidTransactions
+                    hash:{BlockHash BlockNumberber PreviousHash ValidTransactions}
+                )
+            in
+                {AppendToBlockchain RestTransactions NewState NewBlock.hash {AppendBlock Blockchain NewBlock}}
+            end
+        end
+    end
+
+
+
+
 
     %% STUDENT END
  
@@ -99,6 +165,7 @@ define
     fun {Decode Blockchain}
         %% STUDENT START:
         %% TODO
+        "todo"
         %% STUDENT END
     end
 
@@ -112,6 +179,7 @@ define
         %% STUDENT START:
         %% TODO
         State = {InitialState GenesisState}
+        Result = {AppendToBlockchain Transactions State 0 nil}
         %% STUDENT END
     end
 end
