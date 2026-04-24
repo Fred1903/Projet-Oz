@@ -37,7 +37,7 @@ define
         end
     in 
         if Value == 0 then 1 % 0 has 1 digit so effort = 2^0 = 1
-        {Loop Value 0}
+        else {Loop Value 0}
     end
 
 
