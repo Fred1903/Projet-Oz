@@ -33,12 +33,13 @@ define
         fun {Loop N Accumulator}
             if N==0 then Accumulator
             else {Loop N div 10 2*Accumulator+1}
+            end
         end
     in 
         {Loop Value 0}
     end
 
-    
+
     %% STUDENT END
  
     %% Return a string representation of the secret
