@@ -136,18 +136,18 @@ define
             result(blockchain:Blockchain state:State)
         [] H|_ then
             local
-                BlockNumberber = H.block_number
-                BlockTransactions = {GetBlockTransactions Transactions BlockNumberber}
-                RestTransactions = {SkipBlockTransactions Transactions BlockNumberber}
+                BlockNumber = H.block_number
+                BlockTransactions = {GetBlockTransactions Transactions BlockNumber}
+                RestTransactions = {SkipBlockTransactions Transactions BlockNumber}
                 FilterResult = {FilterBlockTransactions BlockTransactions State 0}
                 ValidTransactions = FilterResult.transactions
                 NewState = FilterResult.state
                 
                 NewBlock = block(
-                    number:BlockNumberber
+                    number:BlockNumber
                     previousHash:PreviousHash
                     transactions:ValidTransactions
-                    hash:{BlockHash BlockNumberber PreviousHash ValidTransactions}
+                    hash:{BlockHash BlockNumber PreviousHash ValidTransactions}
                 )
             in
                 {AppendToBlockchain RestTransactions NewState NewBlock.hash {AppendBlock Blockchain NewBlock}}
