@@ -49,7 +49,7 @@ define
 
     % Check if a transaction is valid
     fun{IsTransactionValid Transaction State}
-        Sender = {GetUSer State Transaction.sender}
+        Sender = {GetUser State Transaction.sender}
     in
         if Transaction.nonce \= Sender.nonce +1 then false
         elseif Transaction.hash \= {TransactionHash Transaction.nonce Transaction.sender Transaction.receiver Transaction.value} then false
@@ -70,6 +70,8 @@ define
 
         StateSender= {Adjoin State {List.toRecord state [Transaction.sender#NewSender]}}
         StateReceiver = {Adjoin StateSender {List.toRecord state [Transaction.receiver#NewReceiver]}}
+    in
+        StateReceiver
     end
 
     % Returns an user if he exists, else creates him then returns him
@@ -170,16 +172,17 @@ define
     end
 
 
-    % ATTENTION; SUR FORUM YA MARQUÉ QUE FAUT REMPLACER FUN PAR PROC ICI
-    % --> a VOIR QUAND ON IMPLÉMENTE
 
     % This function is the starting point of the execution
     % The GenesisState and the Transactions are given as input and the function is expected to bound the FinalState and the FinalBlockchain to their respective final values.
-    fun {ExecuteBlockchain GenesisState Transactions FinalState FinalBlockchain}
+    proc {ExecuteBlockchain GenesisState Transactions FinalState FinalBlockchain}
         %% STUDENT START:
         %% TODO
         State = {InitialState GenesisState}
         Result = {AppendToBlockchain Transactions State 0 nil}
+    in
+        FinalState = Result.state
+        FinalBlockchain = Result.blockchain
         %% STUDENT END
     end
 end
