@@ -40,6 +40,37 @@ define
     end
 
 
+    % Initial state of blockchain from the genesis record
+    % Each balance is converted into a user record with a nonce=0
+    % Function written with help of AI
+    fun {InitialState Genesis}
+        {Record.map Genesis fun {$ Balance} user(balance: Balance nonce:0)end}
+    end
+
+
+    fun{IsTransactionValid Transaction State}
+    
+    end
+
+    
+    fun{MakeTransaction Transaction State}  
+    
+    end
+
+
+    fun {ProcessTransactions Transactions State}
+    case Transactions of nil then 
+        State
+    [] H|T then 
+        if {IsTransactionValid Transaction State} then
+            NewState = {MakeTransaction Transaction State}
+        in 
+            {ProcessTransactions T NewState}
+        else 
+            {ProcessTransactions T State}
+        end
+    end
+
     %% STUDENT END
  
     %% Return a string representation of the secret
@@ -58,6 +89,7 @@ define
     fun {ExecuteBlockchain GenesisState Transactions FinalState FinalBlockchain}
         %% STUDENT START:
         %% TODO
+        State = {InitialState GenesisState}
         %% STUDENT END
     end
 end
