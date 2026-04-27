@@ -51,7 +51,7 @@ define
     end
 
     % Check if a transaction is valid
-    fun{IsTransactionValid Transaction State}
+    fun {IsTransactionValid Transaction State}
         Sender = {GetUser State Transaction.sender}
     in
         if Transaction.nonce \= Sender.nonce +1 then false
@@ -65,7 +65,7 @@ define
     end
 
     % Makes a transaction and updates the state
-    fun{MakeTransaction Transaction State}  
+    fun {MakeTransaction Transaction State}  
         Sender = {GetUser State Transaction.sender}
         Receiver = {GetUser State Transaction.receiver}
         NewSender    = user(balance:Sender.balance-Transaction.value  nonce:Sender.nonce + 1)
@@ -78,31 +78,54 @@ define
     end
 
     % Returns an user if he exists, else creates him then returns him
-    fun{GetUser State User}
+    fun {GetUser State User}
         if {HasFeature State User} then State.User
         else user(balance:0 nonce:0)
         end
     end
 
     % Filter transactions of a block, updates state after each valid transaction
-    fun {FilterBlockTransactions Transactions State TotalEffort}
+    fun {FilterBlockTransactions Transactions State TotalEffort Denylist Counts}
         case Transactions of nil then 
-            result(transactions:nil state:State)
+            result(transactions:nil state:State denylist:Denylist)
         [] H|T then 
-            local 
-                Effort = {ComputeEffort H.value}
+            local
+                Sender = H.sender
+                NewCounts = {IncrementSenderCount Counts Sender}
+                SenderCount = {GetSenderCount NewCounts Sender}
             in
-                if TotalEffort + Effort > 300 then
-                    {FilterBlockTransactions T State TotalEffort}
-                elseif {IsTransactionValid H State} then
-                    local 
-                        NewState = {MakeTransaction H State}
-                        Rest = {FilterBlockTransactions T NewState TotalEffort + Effort}
-                    in 
-                        result(transactions:H|Rest.transactions state:Rest.state)
+                %% Already denied users are ignored
+                if {IsInList Sender Denylist} then
+                    {FilterBlockTransactions T State TotalEffort Denylist NewCounts}
+
+                %% The third transaction triggers denylisting and is ignored
+                elseif SenderCount >= 3 then
+                    local NewDenylist in
+                        NewDenylist = {AddToDenylist Sender Denylist}
+
+                        %% Debug
+                        {Browser.show deniedUser#Sender}
+                        {Browser.browse denylist#NewDenylist}
+
+                        {FilterBlockTransactions T State TotalEffort NewDenylist NewCounts}
                     end
-                else 
-                    {FilterBlockTransactions T State TotalEffort}
+                else
+                    local 
+                        Effort = {ComputeEffort H.value}
+                    in
+                        if TotalEffort + Effort > 300 then
+                            {FilterBlockTransactions T State TotalEffort Denylist NewCounts}
+                        elseif {IsTransactionValid H State} then
+                            local 
+                                NewState = {MakeTransaction H State}
+                                Rest = {FilterBlockTransactions T NewState (TotalEffort + Effort) Denylist NewCounts}
+                            in 
+                                result(transactions:H|Rest.transactions state:Rest.state denylist:Rest.denylist)
+                            end
+                        else 
+                            {FilterBlockTransactions T State TotalEffort Denylist NewCounts}
+                        end
+                    end
                 end
             end
         end
@@ -136,7 +159,7 @@ define
     end
 
     % Takes all transactions, groups them by block (creating the blocks) and append to blockchain
-    fun {AppendToBlockchain Transactions State PreviousHash Blockchain}
+    fun {AppendToBlockchain Transactions State PreviousHash Blockchain Denylist}
         case Transactions of nil then
             result(blockchain:Blockchain state:State)
         [] H|_ then
@@ -144,12 +167,13 @@ define
                 BlockNumber = H.block_number
                 BlockTransactions = {GetBlockTransactions Transactions BlockNumber}
                 RestTransactions = {SkipBlockTransactions Transactions BlockNumber}
-                FilterResult = {FilterBlockTransactions BlockTransactions State 0}
+                FilterResult = {FilterBlockTransactions BlockTransactions State 0 Denylist counts()}
                 ValidTransactions = FilterResult.transactions
                 NewState = FilterResult.state
+                NewDenylist = FilterResult.denylist
             in
                 if ValidTransactions == nil then
-                    {AppendToBlockchain RestTransactions NewState PreviousHash Blockchain}
+                    {AppendToBlockchain RestTransactions NewState PreviousHash Blockchain NewDenylist}
                 else
                     local 
                         NewBlock = block(
@@ -159,7 +183,7 @@ define
                             hash:{BlockHash BlockNumber PreviousHash ValidTransactions}
                         )
                     in
-                        {AppendToBlockchain RestTransactions NewState NewBlock.hash {AppendBlock Blockchain NewBlock}}
+                        {AppendToBlockchain RestTransactions NewState NewBlock.hash {AppendBlock Blockchain NewBlock} NewDenylist}
                     end
                 end
             end
@@ -230,13 +254,54 @@ define
 
     %% STUDENT END
 
+    %%% =================== EXTENSIONS =================== 
+
+    %% 1. DENYLIST
+
+    %% Check if a user is in the denylist
+    fun {IsInList User List}
+        case List of nil then false
+        [] H|T then
+            if User == H then 
+                true
+            else 
+                {IsInList User T}
+            end
+        end
+    end
+
+    %% Add a user to the denylist if not already present
+    fun {AddToDenylist User Denylist}
+        if {IsInList User Denylist} then 
+            Denylist
+        else 
+            User|Denylist 
+        end
+    end
+
+    %% Return the number of transactions already sent by a user in the current block
+    fun {GetSenderCount Counts Sender}
+        if {HasFeature Counts Sender} then
+            Counts.Sender
+        else
+            0
+        end
+    end
+
+    %% Increment the transaction count of a sender in the current block
+    fun {IncrementSenderCount Counts Sender}
+        NewCount = {GetSenderCount Counts Sender} + 1
+    in
+        {Adjoin Counts {List.toRecord counts [Sender#NewCount]}}
+    end
+
     % This function is the starting point of the execution
     % The GenesisState and the Transactions are given as input and the function is expected to bound the FinalState and the FinalBlockchain to their respective final values.
     proc {ExecuteBlockchain GenesisState Transactions FinalState FinalBlockchain}
         %% STUDENT START:
         %% TODO
         State = {InitialState GenesisState}
-        Result = {AppendToBlockchain Transactions State 0 nil}
+        Result = {AppendToBlockchain Transactions State 0 nil nil}
     in
         FinalState = Result.state
         FinalBlockchain = Result.blockchain
