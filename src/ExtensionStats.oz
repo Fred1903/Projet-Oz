@@ -230,7 +230,7 @@ define
     %% Map a decoded number to its Sharelock character
     fun {DecodeNumberPair Number}
         if Number >= 10 andthen Number =< 35 then
-            [{List.nth "abcdefghijklmnopqrstuvwxyz" Number - 9}]
+            [{List.nth "abcdefghijklmnopqrstuvwxyz" (Number - 9)}]
         elseif Number == 36 then
             " "
         else
@@ -249,8 +249,8 @@ define
         Counts = {ApplyTransactionsBlockchain Blockchain nil IncrementSenderTransactionCount}
         Sorted = {SortNumberDescending Counts}
     in
-        if N <= 0 then
-            -1
+        if N =< 0 then
+            ~1
         else
             {Take N Sorted}
         end
@@ -295,15 +295,15 @@ define
         end
     end
 
-    % Take the N first transactions counts of the list
+    % Take the N first Users counts of the list
     fun {Take N SortedCounts}
         if N == 0 then 
             nil
         else
             case SortedCounts of nil then 
                 nil
-            [] H|T then
-                H | {Take (N-1) T}
+            [] (User#Value)|T then
+                User | {Take (N-1) T}
             end
         end
     end
@@ -324,7 +324,7 @@ define
         [] H|T then
             case Elem of User1#Count1 then
                 case H of User2#Count2 then
-                    if Count1 >= Count2 then
+                    if Count1 > Count2 orelse (Count1 == Count2 andthen User1 =< User2) then
                         Elem|Sorted
                     else
                         H|{InsertSortNumberDescending Elem T}
@@ -339,8 +339,8 @@ define
         Balances = {ApplyTransactionsBlockchain Blockchain nil IncrementReceiverBalance}
         Sorted = {SortNumberDescending Balances}
     in
-        if N <= 0 then
-            -1
+        if N =< 0 then
+            ~1
         else
             {Take N Sorted}
         end
@@ -364,22 +364,58 @@ define
 
     % Returns a user who has the highest amount of money at a certain time in the blockchain
     fun {MoneyPeak Blockchain}
-        {MoneyPeakAcc Blockchain 0}
+        {MoneyPeakBlockchainAcc Blockchain nil#0 state()}
     end
 
     % Recursive function looking for a new max
-    fun {MoneyPeakAcc Blockchain MaxUserAmount}
+    fun {MoneyPeakBlockchainAcc Blockchain MaxUserAmount State}
+        case Blockchain of nil then
+            MaxUserAmount
+        [] H|T then
+            local Result NewMaxUserAmount NewState in
+                Result = {MoneyPeakTransactionsAcc H.transactions MaxUserAmount State}
+                NewMaxUserAmount = Result.max
+                NewState = Result.state
 
+                {MoneyPeakBlockchainAcc T NewMaxUserAmount NewState}
+            end
+        end
     end
 
-    % Takes a user object and add the amount to its balance
-    fun {UpdateReceiver Receiver}
+    fun {MoneyPeakTransactionsAcc Transactions MaxUserAmount State}
+        case Transactions of nil then
+            result(state:State max:MaxUserAmount)
+        [] H|T then
+            local NewState NewMaxUserAmount in
+                NewState = {MakeTransaction H State}
+                NewMaxUserAmount = {MaxBalanceInState NewState MaxUserAmount}
 
+                {MoneyPeakTransactionsAcc T NewMaxUserAmount NewState}
+            end
+        end
     end
 
-    % Takes a user object and retrieve the amount to its balance
-    fun {UpdateSender Sender}
+    fun {MaxBalanceInState State CurrentMax}
+        Users = {Record.toListInd State}
+    in
+        {MaxBalanceInList Users CurrentMax}
+    end
 
+    fun {MaxBalanceInList Users CurrentMax}
+        case Users of nil then
+            CurrentMax
+        [] (UserId#UserRecord)|T then
+            local Balance in
+                Balance = UserRecord.balance
+                case CurrentMax of MaxUser#MaxBalance then
+                    if Balance > MaxBalance then
+                        {MaxBalanceInList T UserId#Balance}
+                    else
+                        {MaxBalanceInList T CurrentMax}
+                    end
+                end
+            end
+        end
     end
 
     % This function is the starting point of the execution
