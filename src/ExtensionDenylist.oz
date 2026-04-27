@@ -104,7 +104,7 @@ define
                         NewDenylist = {AddToDenylist Sender Denylist}
 
                         %% Debug
-                        {Browser.show deniedUser#Sender}
+                        {Browser.browse deniedUser#Sender}
                         {Browser.browse denylist#NewDenylist}
 
                         {FilterBlockTransactions T State TotalEffort NewDenylist NewCounts}
