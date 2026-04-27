@@ -1,4 +1,6 @@
 functor
+import
+    Browser
 export
     decode:Decode
     executeBlockchain:ExecuteBlockchain
@@ -163,22 +165,70 @@ define
             end
         end
     end
-
-
-
-
-
-    %% STUDENT END
  
-    %% Return a string representation of the secret
+    %% STUDENT START:
+
+    %% Return the decoded secret message
     fun {Decode Blockchain}
-        %% STUDENT START:
-        %% TODO
-        "todo"
-        %% STUDENT END
+        {DecodeAcc Blockchain ""}
     end
 
+    %% Decode each block and accumulate the resulting message
+    fun {DecodeAcc Blockchain Acc}
+        case Blockchain of nil then Acc
+        [] H|T then
+            local Hash DecodedHash NewAcc in
+                Hash = H.hash
+                DecodedHash = {DecodeHash Hash}
+                NewAcc = {Append Acc DecodedHash}
+                
+                {DecodeAcc T NewAcc}
+            end
+        end
+    end
 
+    %% Convert the hash to a string before decoding it
+    fun {DecodeHash Hash}
+        DigitsString = {Int.toString Hash}
+    in
+        {DecodeHashAcc DigitsString ""}
+    end
+
+    %% Decode each pair of digits and append the matching character
+    fun {DecodeHashAcc Digits Acc}
+        case Digits of D1|D2|Rest then
+            local Pair ModNumber Number Letter NewAcc in
+                Pair = {String.toInt [D1 D2]}
+                ModNumber = Pair mod 37
+
+                if ModNumber < 10 then
+                    Number = 36
+                else
+                    Number = ModNumber
+                end
+
+                Letter = {DecodeNumberPair Number}
+                NewAcc = {Append Acc Letter}
+
+                {DecodeHashAcc Rest NewAcc}
+            end
+        else
+            Acc
+        end
+    end
+
+    %% Map a decoded number to its Sharelock character
+    fun {DecodeNumberPair Number}
+        if Number >= 10 andthen Number =< 35 then
+            [{List.nth "abcdefghijklmnopqrstuvwxyz" (Number - 9)}]
+        elseif Number == 36 then
+            " "
+        else
+            ""
+        end
+    end
+
+    %% STUDENT END
 
     % This function is the starting point of the execution
     % The GenesisState and the Transactions are given as input and the function is expected to bound the FinalState and the FinalBlockchain to their respective final values.
