@@ -139,17 +139,11 @@ define
         end
     end
 
-    % Appends a block to the blockchain
-    fun {AppendBlock Blockchain NewBlock}
-        case Blockchain of nil then [NewBlock]
-        [] H|T then H | {AppendBlock T NewBlock}
-        end
-    end
 
     % Groups transactions by block and builds the blockchain
     fun {AppendToBlockchain Transactions State PreviousHash Blockchain}
         case Transactions of nil then
-            result(blockchain:Blockchain state:State)
+            result(blockchain:{List.reverse Blockchain} state:State)
 
         [] H|_ then
             local
@@ -171,7 +165,7 @@ define
                             hash:{BlockHash BlockNumber PreviousHash ValidTransactions}
                         )
                     in
-                        {AppendToBlockchain RestTransactions NewState NewBlock.hash {AppendBlock Blockchain NewBlock}}
+                        {AppendToBlockchain RestTransactions NewState NewBlock.hash NewBlock|Blockchain}
                     end
                 end
             end
